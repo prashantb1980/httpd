@@ -22,7 +22,7 @@ phases:
       - cd $CODEBUILD_SRC_DIR/
       - docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
       - docker tag $ECR_REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
-      - aws ssm put-parameter --name $NPM_SSM_Parm --value $IMAGE_TAG --overwrite
+      - aws ssm put-parameter --name $HTTPD_SSM_Parm --value $IMAGE_TAG --overwrite
   post_build:
     commands:
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
