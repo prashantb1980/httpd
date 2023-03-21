@@ -1,0 +1,28 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION   | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - |
+        #!/bin/bash
+        latesttag=$(aws ecr describe-images --repository-name httpd-image-repository --query 'imageDetails[*].imageTags[ * ]' --output text | sort -r | head -n 1)
+        addone=1
+        if  [ -z "$latesttag" ]
+        then
+           echo new repository
+           IMAGE_TAG=$addone
+        else
+           echo existing repository
+           IMAGE_TAG=$(($latesttag + $addone))
+        fi
+        echo $IMAGE_TAG
+      - echo $latesttag
+      - cd $CODEBUILD_SRC_DIR/
+      - docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+      - docker tag $ECR_REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+      - aws ssm put-parameter --name $NPM_SSM_Parm --value $IMAGE_TAG --overwrite
+  post_build:
+    commands:
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG

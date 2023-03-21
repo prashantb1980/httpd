@@ -1,0 +1,289 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+       This stack creates a pipeline for deployment into test the ecr image for httpd.
+Parameters:
+  PipelineName:
+    Default: httpd-image-stack-pipeline
+    Description: A name for the httpd image pipeline that generates the httpd image in ecr
+    Type: String
+  FullRepositoryId:
+    Default: prashantb1980/httpd
+    Description: The full name of the source git hub repository
+    Type: String  
+  BranchName:
+    Default: main
+    Description: The git hub repository branch name
+    Type: String  
+  EcrRepositoryName:
+    Default: httpd-image-repository
+    Description: ECR repository for npm image
+    Type: String   
+  CodeStarConnectionArn:
+    Default: arn:aws:codestar-connections:eu-west-1:011872652920:connection/e13afda8-8deb-412a-8a05-16714b0d83a8
+    Description: This has the Arn of the codestar connection
+    Type: String       
+Resources:
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${PipelineName}-artifact-bucket-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled 
+      LifecycleConfiguration: 
+        Rules:
+          - Id: ObjectDeletionPolicy
+            Status: Enabled 
+            ExpirationInDays: 10
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID: !GetAtt ArtifactBucketKMSKey.Arn  
+  S3ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactStoreBucket
+      PolicyDocument:
+        Statement:
+        - Action: 
+          - 's3:GetObject'
+          - 's3:PutObject'
+          - 's3:ListBucket'
+          Effect: Allow
+          Resource:
+          - !Sub 'arn:aws:s3:::${PipelineName}-artifact-bucket-${AWS::AccountId}'
+          - !Sub 'arn:aws:s3:::${PipelineName}-artifact-bucket-${AWS::AccountId}/*'
+          Principal:
+            AWS:
+            - !GetAtt PipelineRole.Arn
+  Pipeline:
+    DependsOn: HTTPDECRTagSSMParmeter
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref ArtifactStoreBucket
+        Type: S3
+        EncryptionKey:
+          Id: !Ref ArtifactBucketKMSKey
+          Type: KMS
+      DisableInboundStageTransitions: []
+      Name: !Ref PipelineName
+      RoleArn: !GetAtt PipelineRole.Arn
+      Stages:
+        - Name: Download-from-Github
+          Actions:
+            - Name: TemplateSource 
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: !Ref CodeStarConnectionArn
+                FullRepositoryId: !Ref FullRepositoryId
+                BranchName: !Ref BranchName
+                DetectChanges: false  
+              OutputArtifacts:
+                - Name: TemplateSource 
+        - Name: HTTPD_Image_build
+          Actions:
+            - Name: HTTPDImageBuild
+              InputArtifacts:
+                - Name: TemplateSource
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildHTTPDImage           
+  CodeBuildHTTPDImage:
+    Type: AWS::CodeBuild::Project
+    Properties:  
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: This CodeBuild project fetches the latest docker file and builds the image and sends it to ECR.
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: ECR_REPOSITORY
+            Value: !Ref EcrRepositoryName 
+          - Name: HTTPD_SSM_Parm
+            Value: HTTPD-ECR-Tag-SSM-Parmeter
+        Image: "aws/codebuild/standard:5.0"
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt HTTPDCodeBuildRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: Buildspec_HTTPDImage_Builder.yml
+      TimeoutInMinutes: 5
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref EcrRepositoryName
+      EncryptionConfiguration:
+        EncryptionType: KMS
+        KmsKey: !GetAtt ECRHTTPDRepositoryKMSKey.Arn
+  HTTPDCodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies: 
+        - PolicyName: HTTPDCodeBuildPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - 's3:PutOBject'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Effect: Allow
+                Resource: 
+                  - !Sub 'arn:aws:s3:::${ArtifactStoreBucket}'
+                  - !Sub 'arn:aws:s3:::${ArtifactStoreBucket}/*'                     
+              - Action:
+                  -  'kms:Decrypt'
+                Effect: Allow
+                Resource: 
+                  - !GetAtt ArtifactBucketKMSKey.Arn  
+              - Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Effect: Allow  
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/CodeBuildHTTPDImage*:*'      
+              - Action:
+                - ecr:DescribeImages
+                - ecr:BatchGetImage
+                - ecr:BatchCheckLayerAvailability
+                - ecr:CompleteLayerUpload
+                - ecr:GetDownloadUrlForLayer
+                - ecr:InitiateLayerUpload
+                - ecr:PutImage
+                - ecr:UploadLayerPart
+                - ecr:GetAuthorizationToken
+                Effect: Allow
+                Resource: '*'
+              - Action:
+                - ssm:PutParameter
+                Effect: Allow
+                Resource: '*'
+  ArtifactBucketKMSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: KMS key for the artifact bucket
+      EnableKeyRotation: true
+      PendingWindowInDays: 20
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: ArtifactBucketKMSKey
+        Statement:
+          - Sid: Allows admin of the key  
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow use of the key for pipeline role 
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !GetAtt PipelineRole.Arn
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'
+  ECRHTTPDRepositoryKMSKey:
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Description: KMS key for the ECR Repository
+      EnableKeyRotation: true
+      PendingWindowInDays: 20
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: ECRNPMRepositoryKMSKey
+        Statement:
+          - Sid: Allows admin of the key  
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow use of the key for pipeline role 
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt PipelineRole.Arn
+            Action:
+              - 'kms:DescribeKey'
+              - 'kms:Encrypt'
+              - 'kms:Decrypt'
+              - 'kms:ReEncrypt*'
+              - 'kms:GenerateDataKey'
+              - 'kms:GenerateDataKeyWithoutPlaintext'
+            Resource: '*'               
+
+  PipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: 'sts:AssumeRole'
+          Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+        - PolicyName: CodePipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                - 'codestar-connections:UseConnection'
+                Effect: Allow
+                Resource: !Ref CodeStarConnectionArn
+              - Action:
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:ListBucket'                
+                Effect: Allow
+                Resource:
+                  - !Sub 'arn:aws:s3:::${PipelineName}-artifact-bucket-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::${PipelineName}-artifact-bucket-${AWS::AccountId}/*'                 
+              - Action: 
+                - 'codebuild:StartBuild'
+                - 'codebuild:BatchGetBuilds'
+                Effect: Allow
+                Resource: !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/CodeBuildHTTPDImage*' 
+  HTTPDECRTagSSMParmeter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      AllowedPattern: ^\d+$
+      DataType: text
+      Value: 0
+      Description: 'SSM parameter used to store the latest tag for the NPM ECR image'
+      Name: HTTPD-ECR-Tag-SSM-Parmeter
+      Type: String
+      
+Outputs:
+  ECRKMSKey:
+    Value: !GetAtt ECRHTTPDRepositoryKMSKey.Arn
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ECRCfnLintKMSKey' ] ]
