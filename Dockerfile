@@ -7,5 +7,4 @@ RUN service docker start
 RUN cd /var/www/html
 RUN echo "This is a test website Version1" > index.html
 EXPOSE 80
-RUN systemctl enable httpd
-RUN systemctl start httpd
+ENTRYPOINT ["/usr/sbin/httpd", "-D", "FOREGROUND"]
