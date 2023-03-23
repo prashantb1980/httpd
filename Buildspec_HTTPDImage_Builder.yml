@@ -16,6 +16,7 @@ phases:
         else
            echo latest image found
            echo $latesttag
+           IMAGE_TAG=$(($latesttag + $addone))
         fi
         echo $IMAGE_TAG
       - echo $latesttag
