@@ -7,15 +7,15 @@ phases:
     commands:
       - |
         #!/bin/bash
-        latesttag=$(aws ecr describe-images --repository-name httpd-image-repository --query 'imageDetails[*].imageTags[ * ]' --output text | sort -r | head -n 1)
+        latesttag=$(aws ecr describe-images --repository-name httpd-image-repository --query 'imageDetails[*].imageTags[ * ]' --output text | sort -nr | head -n 1)
         addone=1
         if  [ -z "$latesttag" ]
         then
-           echo new repository
-           IMAGE_TAG=$addone
+           echo new repository or no images in the repository
+           exit 10
         else
-           echo existing repository
-           IMAGE_TAG=$(($latesttag + $addone))
+           echo latest image found
+           echo $latesttag
         fi
         echo $IMAGE_TAG
       - echo $latesttag
