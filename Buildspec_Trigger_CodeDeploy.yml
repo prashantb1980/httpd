@@ -25,7 +25,7 @@ phases:
         echo task definition arn
         echo $TASK_DEFINITION_ARN
 
-        TASK_DEFINITION=$(aws ecs describe-task-definition --task-def $TASK_DEFINITION_ARN | jq .taskdefinition )
+        TASK_DEFINITION=$(aws ecs describe-task-definition --task-def $TASK_DEFINITION_ARN | jq .taskDefinition )
         echo task definition
         echo $TASK_DEFINITION
 
