@@ -26,3 +26,9 @@ phases:
         echo $TASK_DEFINITION_ARN
         echo task definition
         echo $TASK_DEFINITION
+
+      - |
+        DEF=$( echo "$TASK_DEFINITION" \ | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${IMAGE_URI}\"|g" \ | jq '.taskDefinition' )
+
+        echo new task defition
+        echo $DEF
