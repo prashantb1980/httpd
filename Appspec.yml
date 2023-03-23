@@ -1,0 +1,10 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        ServiceName: 'httpd-service-code-deploy'
+        TaskDefinition: "arn:aws:ecs:us-east-1:111222333444:task-definition/my-task-definition-family-name:2"
+        LoadBalancerInfo:
+          ContainerName: "SampleApplicationName"
+          ContainerPort: 80
