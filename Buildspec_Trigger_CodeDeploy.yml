@@ -33,7 +33,7 @@ phases:
         echo current image
         echo $CURRENT_IMAGE
         
-        NEW_TASK_DEFINITION=${$TASK_DEFINITION//$CURRENT_IMAGE/$NEW_IMAGE}
+        NEW_TASK_DEFINITION=${TASK_DEFINITION//$CURRENT_IMAGE/$NEW_IMAGE}
         #sed -i 's/$CURRENT_IMAGE/$NEW_IMAGE/g' $TASK_DEFINITION
         echo updated task definition
         echo $NEW_TASK_DEFINITION
