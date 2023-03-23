@@ -37,8 +37,12 @@ phases:
         #sed -i 's/$CURRENT_IMAGE/$NEW_IMAGE/g' $TASK_DEFINITION
         echo updated task definition
         echo $NEW_TASK_DEFINITION
+        
+        NEW_DEF_JQ_FILTER="family: .family, volumes: .volumes, containerDefinitions: .containerDefinitions, executionRoleArn: .executionRoleArn, networkMode: .networkMode "
 
-        NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEFINITION" | jq -r .taskDefinition.taskDefinitionArn)
+        NEW_TASK_DEFINITION1=$(echo $NEW_TASK_DEFINITION | jq "{${NEW_DEF_JQ_FILTER}}")
+
+        NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEFINITION1" | jq -r .taskDefinition.taskDefinitionArn)
         echo new task definition arn
         echo $NEW_TASK_DEFINITION_ARN
 
