@@ -2,7 +2,6 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - yum install sed 
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION   | docker login --username AWS --password-stdin $Account_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   build:
     commands:
@@ -23,9 +22,9 @@ phases:
       - |
         TASK_DEFINITION_ARN=$(aws ecs describe-services --services $Service --cluster $Cluster | jq -r .services[0].taskDefinition)
         TASK_DEFINITION=$(aws ecs describe-task-definition --task-def $TASK_DEFINITION_ARN)
-        CURRENT_IMAGE=$($TASK_DEFINITION | jq -r .taskDefinition[0].containerDefinitions[0].image[0] )
+        #CURRENT_IMAGE=$($TASK_DEFINITION | jq -r .taskDefinition[0].containerDefinitions[0].image[0] )
         echo current image
-        echo $CURRENT_IMAGE
+        #echo $CURRENT_IMAGE
         echo task definition arn
         echo $TASK_DEFINITION_ARN
         echo task definition
