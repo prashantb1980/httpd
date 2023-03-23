@@ -38,4 +38,10 @@ phases:
         echo updated task definition
         echo $NEW_TASK_DEFINITION
 
+        NEW_TASK_DEFINITION_ARN=$(aws ecs register-task-definition --cli-input-json "$NEW_TASK_DEFINITION" | jq -r .taskDefinition.taskDefinitionArn)
+        echo new task definition arn
+        echo $NEW_TASK_DEFINITION_ARN
+
+        UPDATE_SERVICE=$(aws ecs update-service --cluster $Cluster --service $Service --task-definition $NEW_TASK_DEFINITION_ARN)
+
 
