@@ -23,13 +23,10 @@ phases:
       - |
         TASK_DEFINITION_ARN=$(aws ecs describe-services --services $Service --cluster $Cluster | jq -r .services[0].taskDefinition)
         TASK_DEFINITION=$(aws ecs describe-task-definition --task-def $TASK_DEFINITION_ARN)
+        CURRENT_IMAGE=$($TASK_DEFINITION | jq -r .taskDefinition[0].containerDefinitions[0].image )
+        echo current_image
+        echo $CURRENT_IMAGE
         echo task definition arn
         echo $TASK_DEFINITION_ARN
         echo task definition
         echo $TASK_DEFINITION
-
-      - |
-        DEF=$( echo "$TASK_DEFINITION" \ | sed -e "s|\(\"image\": *\".*:\)\(.*\)\"|\1${IMAGE_URI}\"|g" \ | jq '.taskDefinition' )
-
-        echo new task defition
-        echo $DEF
