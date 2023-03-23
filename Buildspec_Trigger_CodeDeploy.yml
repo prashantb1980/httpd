@@ -20,7 +20,7 @@ phases:
         echo $IMAGE_URI
       - echo $latesttag      
       - |
-        TASK_DEFINITION_ARN=$(aws ecs describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition)
+        TASK_DEFINITION_ARN=$(aws ecs describe-services --services $Service --cluster $Cluster | jq -r .services[0].taskDefinition)
         TASK_DEFINITION=$(aws ecs describe-task-definition --task-def $TASK_DEFINITION_ARN)
         echo task definition arn
         echo $TASK_DEFINITION_ARN
