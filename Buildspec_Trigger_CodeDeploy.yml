@@ -1,0 +1,21 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION   | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - |
+        #!/bin/bash
+        latesttag=$(aws ecr describe-images --repository-name httpd-image-repository --query 'imageDetails[*].imageTags[ * ]' --output text | sort -r | head -n 1)
+        addone=1
+        if  [ -z "$latesttag" ]
+        then
+           echo new repository or no images found
+           exit 10
+        else
+           echo existing repository
+           IMAGE_URI=$Account_ID.dkr.ecr.eu-west-1.amazonaws.comhttpd-image-repository:$latesttag
+        fi 
+        echo $IMAGE_URI
+      - echo $latesttag
