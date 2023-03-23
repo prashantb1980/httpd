@@ -18,4 +18,11 @@ phases:
            IMAGE_URI=$Account_ID.dkr.ecr.eu-west-1.amazonaws.comhttpd-image-repository:$latesttag
         fi 
         echo $IMAGE_URI
-      - echo $latesttag
+      - echo $latesttag      
+      - |
+        TASK_DEFINITION_ARN=$(AWS_ECS describe-services --services $SERVICE --cluster $CLUSTER | jq -r .services[0].taskDefinition)
+        TASK_DEFINITION=$($AWS_ECS describe-task-definition --task-def $TASK_DEFINITION_ARN)
+        echo task definition arn
+        echo $TASK_DEFINITION_ARN
+        echo task definition
+        echo $TASK_DEFINITION
