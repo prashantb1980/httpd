@@ -34,6 +34,6 @@ phases:
 
         UPDATE_SERVICE=$(aws ecs update-service --cluster $Cluster --service $Service --task-definition $NEW_TASK_DEFINITION_ARN)
 
-        SERVICE_STABLE=$(aws ecs services-table --cluster $Cluster --service $Service )
+        SERVICE_STABLE=$(aws ecs wait services-table --cluster $Cluster --service $Service )
 
 
