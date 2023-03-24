@@ -35,5 +35,16 @@ phases:
         UPDATE_SERVICE=$(aws ecs update-service --cluster $Cluster --service $Service --task-definition $NEW_TASK_DEFINITION_ARN)
 
         SERVICE_STABLE=$(aws ecs wait services-stable --cluster $Cluster --service $Service )
+        RETURN_CODE=$? 
+        if [ $RETURN_CODE -eq 0 ]
+        then
+           exit 0
+        else
+          if [ $RETURN_CODE -eq 255 ]
+          then
+            echo failed deployment, rolling back to the previous task definition
+             ROLLBACK=$( aws ecs update-service --cluster $Cluster --service $Service --task-definition $TASK_DEFINITION_ARN ) 
+          fi
+        fi 
 
 
